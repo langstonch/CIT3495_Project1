@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+
+# Local virtualenvs and test databases (never commit data files).
+.venv/
+venv/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+data/
+mysql-data/
+mongo-data/

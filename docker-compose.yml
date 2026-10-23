@@ -1,0 +1,151 @@
+# Full stack for CIT3495 Project 1.
+# Start: copy .env.example to .env, then `docker compose up --build`.
+# Only enterdata (3001) and showresults (3002) publish host ports.
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-analytics_db}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD in .env}
+      ENTERDATA_DB_PASSWORD: ${ENTERDATA_DB_PASSWORD:?set ENTERDATA_DB_PASSWORD in .env}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?set ANALYTICS_DB_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    networks: [backend]
+    restart: unless-stopped
+    # InnoDB needs headroom past the 128 MB default buffer or the server is OOM-killed on first init.
+    mem_limit: 512m
+    cpus: "1.0"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+    networks: [backend]
+    restart: unless-stopped
+    # WiredTiger cache plus the small stats collection. No host port.
+    mem_limit: 512m
+    cpus: "0.75"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  auth:
+    build: ./auth
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
+      MYSQL_DB: ${MYSQL_DATABASE:-analytics_db}
+      MYSQL_USER: auth
+      MYSQL_PASSWORD: ${AUTH_DB_PASSWORD:?set AUTH_DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [backend]
+    restart: unless-stopped
+    # Two gunicorn workers. Stays private on the backend network (no ports:).
+    mem_limit: 256m
+    cpus: "0.50"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:5000/health', timeout=2)"]
+      interval: 15s
+      timeout: 3s
+      retries: 10
+      start_period: 25s
+
+  enterdata:
+    build: ./enterdata
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
+      MYSQL_DB: ${MYSQL_DATABASE:-analytics_db}
+      MYSQL_USER: enterdata
+      MYSQL_PASSWORD: ${ENTERDATA_DB_PASSWORD:?set ENTERDATA_DB_PASSWORD in .env}
+      AUTH_URL: ${AUTH_URL:-http://auth:5000}
+    depends_on:
+      auth:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    networks: [frontend, backend]
+    restart: unless-stopped
+
+  analytics:
+    build: ./analytics
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
+      MYSQL_DB: ${MYSQL_DATABASE:-analytics_db}
+      MYSQL_USER: analytics
+      MYSQL_PASSWORD: ${ANALYTICS_DB_PASSWORD:?set ANALYTICS_DB_PASSWORD in .env}
+      MONGO_URI: ${MONGO_URI:?set MONGO_URI in .env}
+      ANALYTICS_INTERVAL_SECONDS: ${ANALYTICS_INTERVAL_SECONDS:-30}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    networks: [backend]
+    restart: unless-stopped
+    # Periodic batch job, not a request path. No published port.
+    mem_limit: 256m
+    cpus: "0.50"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
+  showresults:
+    build: ./showresults
+    environment:
+      MONGO_URI: ${MONGO_URI:?set MONGO_URI in .env}
+      AUTH_URL: ${AUTH_URL:-http://auth:5000}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+    networks: [frontend, backend]
+    restart: unless-stopped
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    # Bridge driver, isolated from the host and from egress. Reachable only by attached services.
+    internal: true
+
+volumes:
+  mysql_data:
+  mongo_data:

@@ -1,0 +1,51 @@
+# Part B (MongoDB + Analytics + Show Results). The live stack is the root docker-compose.yml.
+# Paths are relative to this file (compose-slices/). Run with Part A from the repo root:
+#   docker compose --env-file .env -f compose-slices/compose.partA.yml -f compose-slices/compose.partB.yml up -d --build
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+    networks: [backend]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  analytics:
+    build: ../analytics
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_DB: ${MYSQL_DATABASE:-collector}
+      MYSQL_USER: analytics
+      MYSQL_PASSWORD: ${ANALYTICS_DB_PASSWORD:?}
+      MONGO_URI: ${MONGO_URI:?set in .env}
+      ANALYTICS_INTERVAL_SECONDS: ${ANALYTICS_INTERVAL_SECONDS:-30}
+    depends_on:
+      mysql: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+    networks: [backend]
+    restart: unless-stopped
+
+  showresults:
+    build: ../showresults
+    environment:
+      MONGO_URI: ${MONGO_URI:?set in .env}
+      AUTH_URL: http://auth:5000
+    depends_on:
+      auth: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+    ports: ["3002:3002"]
+    networks: [frontend, backend]
+    restart: unless-stopped
+
+networks:
+  frontend:
+  backend:
+    internal: true
+
+volumes:
+  mongo_data:

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CIT3495 Project 1 - Parts B and C</title>
+<style>
+body{font-family:Calibri,Arial,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#222}
+h1{font-size:2rem;border-bottom:2px solid #333}h2{font-size:1.5rem;margin-top:2rem;background:#eef;padding:.3rem .6rem}h3{font-size:1.15rem}
+table{border-collapse:collapse;width:100%;margin:.6rem 0}td,th{border:1px solid #999;padding:.35rem .5rem;vertical-align:top;text-align:left}th{background:#f3f3f3}
+code{background:#f3f3f3;padding:0 3px}
+</style></head><body>
+<h1>CIT3495 Project 1: Data Collection and Analytics System</h1>
+<p><b>Split of work.</b> Part A: Auth Service + Enter Data app + MySQL. Part B: Analytics + Show Results + MongoDB. Part C: Platform, CI/CD, evidence. Use at least two languages (suggested: Python for Auth and Analytics, Node.js for the two web apps).</p>
+
+<h2>Shared contracts (agree on day 1, all three sign off)</h2>
+<table>
+<tr><th>Item</th><th>Proposal</th></tr>
+<tr><td>Auth</td><td><code>POST /login</code> {username,password} returns JWT. <code>GET /validate</code> with <code>Authorization: Bearer</code> returns 200 + {user} or 401. Shared signing secret via env var <code>JWT_SECRET</code>.</td></tr>
+<tr><td>MySQL table <code>measurements</code></td><td>id INT PK AUTO, user VARCHAR(64), category VARCHAR(64), value DOUBLE, created_at TIMESTAMP</td></tr>
+<tr><td>Mongo collection <code>stats</code></td><td>{category, min, max, avg, count, updated_at}, one doc per category, upserted</td></tr>
+<tr><td>Ports</td><td>Enter Data 3001, Show Results 3002 (published). Auth 5000, Analytics (no port), MySQL 3306, Mongo 27017 (internal only)</td></tr>
+<tr><td>Env var names</td><td>MYSQL_HOST/USER/PASSWORD/DB, MONGO_URI, JWT_SECRET, AUTH_URL</td></tr>
+<tr><td>Networks</td><td><code>frontend</code> (web apps), <code>backend</code> (internal, no published ports)</td></tr>
+</table>
+
+<h2>Part B: Analytics Service, Show Results app, MongoDB</h2>
+<h3>Deliverables</h3>
+<ol>
+<li><b>Analytics Service</b> (Python). Loop or scheduled job (e.g. every 30-60 s): read raw rows from MySQL, compute min, max, avg, count per category, upsert into Mongo <code>stats</code>. Must be idempotent and survive a DB being down (retry with backoff, log, do not crash).</li>
+<li><b>Show Results web app</b> (Node.js). Login page uses the Auth Service; page lists stats from MongoDB. Reject requests without a valid token (call <code>/validate</code>). Escape all output (no XSS).</li>
+<li><b>MongoDB</b> container config and named volume for data (Compose entry provided to Part C).</li>
+<li><b>Dockerfiles</b> for Analytics and Show Results: slim/alpine base, <code>.dockerignore</code>, dependency layer cached before source copy, non-root <code>USER</code>, <code>HEALTHCHECK</code>. Analytics image should be multi-stage if it needs build deps.</li>
+<li><b>Tests</b>: unit tests for the stats calculation (empty set, one row, many rows, bad values) and for the Show Results auth guard (no token, bad token, good token). Wire into <code>npm test</code> / <code>pytest</code> so Part C's CI can run them.</li>
+<li><b>Logging</b>: structured JSON logs (job start, rows read, docs written, errors). Never log passwords, tokens or connection strings.</li>
+<li><b>Report sections</b>: analytics design and data flow, Mongo schema choice, how B's services fail and recover, B's security measures.</li>
+</ol>
+<h3>Checklist</h3>
+<table>
+<tr><th>#</th><th>Task</th><th>Done when</th></tr>
+<tr><td>B1</td><td>Analytics computes correct stats</td><td>Test output matches hand-calculated values</td></tr>
+<tr><td>B2</td><td>Results visible only when logged in</td><td>Curl without token gets 401</td></tr>
+<tr><td>B3</td><td>Health checks</td><td>Analytics: process/heartbeat check. Show Results: <code>/health</code>. Mongo: <code>mongosh ping</code></td></tr>
+<tr><td>B4</td><td>Resilience</td><td>Stop MySQL: Analytics logs and retries, recovers on restart. Stop Mongo: Show Results returns a clean error, not a crash</td></tr>
+<tr><td>B5</td><td>Non-root, no secrets in image</td><td><code>docker exec ... id</code> not root; <code>docker history</code> shows no secrets</td></tr>
+<tr><td>B6</td><td>Hand-off to C</td><td>Image names, env vars, ports, health endpoints and test commands documented in <code>B/README.md</code></td></tr>
+</table>
+<h3>Presentation (B's part)</h3>
+<p>Demo: add data in the Enter Data app, wait for the analytics run, see updated stats. Be ready to defend: why Mongo for results, how the job handles failures, why stats are upserted, how the token is checked.</p>
+
+<h2>Part C: Platform, CI/CD, evidence</h2>
+<h3>Deliverables</h3>
+<ol>
+<li><b>docker-compose.yml</b> for all services. Only Enter Data and Show Results publish ports. MySQL, Mongo, Auth, Analytics on the internal <code>backend</code> network. Named volumes for MySQL and Mongo. <code>depends_on</code> with <code>condition: service_healthy</code>. <code>restart: unless-stopped</code>. <code>mem_limit</code>/<code>cpus</code> on selected services with a written justification.</li>
+<li><b>Secrets</b>: <code>.env.example</code> committed with placeholders; real <code>.env</code> git-ignored; DB passwords and JWT secret read from env or Docker secrets. Repo scanned to confirm nothing real is committed.</li>
+<li><b>Multi-arch images</b> (linux/amd64 and linux/arm64) built with <code>docker buildx</code>. Record image size and build time before/after one real optimization (e.g. single-stage to multi-stage, alpine/slim base, layer reordering, <code>.dockerignore</code>).</li>
+<li><b>CI/CD pipeline</b> (GitHub Actions or GitLab CI): run all unit tests, build images, scan with Trivy (fail on critical, review high), tag (git SHA + <code>latest</code>/version), push to registry (Docker Hub or GHCR) using repository secrets. Needs one fully green run captured as evidence.</li>
+<li><b>Failure tests</b> (at least two): e.g. stop MySQL, stop Auth. For each, record the command, what the user sees, what the logs say, and how it recovers.</li>
+<li><b>Persistence test</b>: insert data, <code>docker compose rm -sf mysql mongo</code> and recreate, show the data is still there.</li>
+<li><b>Load test</b> (k6, wrk or JMeter): fixed script against login + data entry + results. Report throughput, error rate, CPU and memory (<code>docker stats</code>). Make two justified improvements (e.g. DB connection pooling, index on <code>category</code>, tuned worker count, resource limits), re-run and compare in a table.</li>
+<li><b>Docs</b>: architecture diagram (draw.io or Mermaid), README with clean-environment deploy steps (clone, copy <code>.env.example</code>, <code>docker compose up -d</code>, URLs, default test user), and the technical report assembling the evidence tables from A and B too.</li>
+</ol>
+<h3>Checklist</h3>
+<table>
+<tr><th>#</th><th>Task</th><th>Evidence to capture</th></tr>
+<tr><td>C1</td><td>Clean start works</td><td>Fresh clone + <code>compose up</code> brings all services healthy</td></tr>
+<tr><td>C2</td><td>Network isolation</td><td>Host port scan or <code>docker ps</code> shows only 2 published ports; DBs unreachable from host</td></tr>
+<tr><td>C3</td><td>Optimization before/after</td><td>Table: size (MB), build time (s), both versions</td></tr>
+<tr><td>C4</td><td>Vulnerability scan</td><td>Trivy report, with notes on findings and fixes or accepted risks</td></tr>
+<tr><td>C5</td><td>Failure tests x2</td><td>Commands, logs, recovery time</td></tr>
+<tr><td>C6</td><td>Persistence</td><td>Row/doc counts before and after recreate</td></tr>
+<tr><td>C7</td><td>Load test + 2 improvements</td><td>Before/after table of req/s, errors, CPU, mem</td></tr>
+<tr><td>C8</td><td>Green pipeline</td><td>Screenshot/link of run with test, build, scan, tag, push stages</td></tr>
+<tr><td>C9</td><td>README + report + diagram</td><td>A teammate reproduces from scratch using only the README</td></tr>
+</table>
+<h3>Presentation (C's part)</h3>
+<p>Demo: <code>compose up</code>, stop a service live and show recovery, show the pipeline run and the before/after numbers. Be ready to defend: network design, resource limits, why each optimization helped, what the scan found.</p>
+
+<h2>Timeline suggestion</h2>
+<table>
+<tr><th>When</th><th>A</th><th>B</th><th>C</th></tr>
+<tr><td>Phase 1</td><td colspan="3">Agree contracts above. Create repo with a folder per service.</td></tr>
+<tr><td>Phase 2</td><td>Auth + Enter Data + MySQL</td><td>Analytics + Show Results + Mongo (use a stub Auth until A is ready)</td><td>Compose skeleton, CI skeleton with tests and build, <code>.env.example</code></td></tr>
+<tr><td>Phase 3</td><td colspan="3">Integrate, fix, then C runs failure, persistence, load and scan evidence with A and B on hand to fix issues.</td></tr>
+<tr><td>Phase 4</td><td colspan="3">Report, README, diagram, demo rehearsal, mock Q&amp;A.</td></tr>
+</table>
+</body></html>

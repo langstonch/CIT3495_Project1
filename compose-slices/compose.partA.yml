@@ -1,0 +1,59 @@
+# Part A only (MySQL + Auth + Enter Data). The live stack is the root docker-compose.yml.
+# From the repo root: docker compose --env-file .env -f compose-slices/compose.partA.yml up -d --build
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-collector}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?}
+      ENTERDATA_DB_PASSWORD: ${ENTERDATA_DB_PASSWORD:?}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../mysql/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    networks: [backend]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  auth:
+    build: ../auth
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_DB: ${MYSQL_DATABASE:-collector}
+      MYSQL_USER: auth
+      MYSQL_PASSWORD: ${AUTH_DB_PASSWORD:?}
+      JWT_SECRET: ${JWT_SECRET:?}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?}
+    depends_on:
+      mysql: { condition: service_healthy }
+    networks: [backend]
+    restart: unless-stopped
+
+  enterdata:
+    build: ../enterdata
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_DB: ${MYSQL_DATABASE:-collector}
+      MYSQL_USER: enterdata
+      MYSQL_PASSWORD: ${ENTERDATA_DB_PASSWORD:?}
+      AUTH_URL: http://auth:5000
+    depends_on:
+      auth: { condition: service_healthy }
+    ports: ["3001:3001"]
+    networks: [frontend, backend]
+    restart: unless-stopped
+
+networks:
+  frontend:
+  backend:
+    internal: true
+
+volumes:
+  mysql_data:
