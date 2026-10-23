@@ -69,6 +69,19 @@ cd showresults; npm install; npm test
 
 Auth has 4 tests, Enter Data 3, analytics 7, Show Results 6.
 
+## Part C evidence
+
+Platform files live next to the services. `docs/evidence/README.md` maps each grading item to the command that produces it.
+
+```powershell
+pwsh scripts/test_failure.ps1
+pwsh scripts/test_persistence.ps1
+k6 run -e ADMIN_USER=admin -e ADMIN_PASSWORD=change_this_password tests/load/k6_test.js
+pwsh scripts/measure_images.ps1
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the four unit-test suites, scans the four application images with Trivy, and on a push to `main` publishes `linux/amd64` and `linux/arm64` images to `ghcr.io/<owner>/<repo>/<service>` tagged with the commit SHA and `latest`. The workflow needs Actions package permission set to read and write. MySQL and MongoDB stay the upstream images and are not pushed.
+
 ## Layout
 
 ```
@@ -77,6 +90,10 @@ docker-compose.yml          full stack
 auth/  enterdata/  analytics/  showresults/  mysql/
 compose-slices/             Part A and Part B compose files, kept for reference
 docs/assignment/            assignment prompt
+docs/evidence/              report templates for the Part C runs
+scripts/                    failure, persistence, image-size, and stats samples
+tests/load/k6_test.js       login, insert, and results load
+.github/workflows/ci.yml    tests, Trivy, multi-arch push
 ```
 
 The slice files are not the supported start path. From the repo root they need the root env file:

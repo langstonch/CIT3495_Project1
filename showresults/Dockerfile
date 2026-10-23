@@ -1,3 +1,4 @@
+# Production image. The C3 baseline is Dockerfile.baseline.
 FROM node:22-alpine AS deps
 WORKDIR /w
 COPY package*.json ./

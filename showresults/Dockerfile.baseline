@@ -1,0 +1,9 @@
+# C3 before image. Compose builds Dockerfile, not this file.
+# Single stage, full Debian Node image, root, install and source in one layer.
+FROM node:22
+WORKDIR /app
+COPY package.json package-lock.json app.js index.js ./
+RUN npm install --omit=dev --omit=optional --no-audit --no-fund
+ENV NODE_ENV=production
+EXPOSE 3002
+CMD ["node", "index.js"]
