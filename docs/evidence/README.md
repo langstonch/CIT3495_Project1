@@ -1,4 +1,4 @@
-# Part C evidence map
+# Evidence map
 
 Run the stack from the repository root first: copy `.env.example` to `.env`, then `docker compose up --build`. Paste command output into the report section named below. Generated runs land in `docs/evidence/runs/`, which is git-ignored.
 

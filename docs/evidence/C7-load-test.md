@@ -59,19 +59,21 @@ In `enterdata/index.js`, change `connectionLimit: 10` to `connectionLimit: 30`.
 
 ## Results
 
+Measured 22 Oct 2026. `k6 run -e VUS=5 -e DURATION=30s tests/load/k6_test.js`. The second column is after the Auth connection reuse, 4 Gunicorn workers, Auth limit 1 CPU / 384 MB, and Enter Data pool 30. The category index was already in `mysql/init.sh` and was not part of this change.
+
 | Metric | Baseline | After both changes |
 |---|---:|---:|
-| Requests/sec (k6 `http_reqs`) |  |  |
-| Error rate % (`http_req_failed`) |  |  |
-| p95 latency ms (`http_req_duration`) |  |  |
-| Login checks passed % |  |  |
-| Insert checks passed % |  |  |
-| Results checks passed % |  |  |
-| auth CPU peak |  |  |
-| auth memory peak |  |  |
-| enterdata CPU peak |  |  |
-| enterdata memory peak |  |  |
-| mysql CPU peak |  |  |
-| mysql memory peak |  |  |
+| Requests/sec (k6 `http_reqs`) | 3.81 | 7.39 |
+| Error rate % (`http_req_failed`) | 0.82 | 0 |
+| p95 latency ms (`http_req_duration`) | 2660 | 1380 |
+| Login checks passed % | enterdata 100; showresults 96.7 | 100 |
+| Insert checks passed % | 100 | 100 |
+| Results checks passed % | 100 | 100 |
+| auth CPU peak | 50.88% | 99.52% |
+| auth memory peak | 81.96 MiB | 125.5 MiB |
+| enterdata CPU peak | 21.73% | 43.70% |
+| enterdata memory peak | 81.84 MiB | 33.94 MiB |
+| mysql CPU peak | 2.10% | 4.64% |
+| mysql memory peak | 437.1 MiB | 438.2 MiB |
 
-VUs: ________. Duration: ________. k6 command copied from the terminal.
+VUs: 5. Duration: 30s.

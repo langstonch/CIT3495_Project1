@@ -30,11 +30,13 @@ bash scripts/measure_images.sh
 
 Paste the printed table here. Do not invent the numbers.
 
+Measured 22 Oct 2026 by `scripts/measure_images.ps1`. Size is `docker image inspect` `.Size`. `docker images` printed 1.65GB, 228MB, 1.65GB, and 255MB for the same four tags. The optimized base images were already local, so the build times include a pull only for the fat baselines.
+
 | Image | Dockerfile | Size (MB) | Build (s) |
 |---|---|---:|---:|
-| analytics baseline | `analytics/Dockerfile.baseline` |  |  |
-| analytics optimized | `analytics/Dockerfile` |  |  |
-| showresults baseline | `showresults/Dockerfile.baseline` |  |  |
-| showresults optimized | `showresults/Dockerfile` |  |  |
+| analytics baseline | `analytics/Dockerfile.baseline` | 1577.2 | 99.0 |
+| analytics optimized | `analytics/Dockerfile` | 217.7 | 23.0 |
+| showresults baseline | `showresults/Dockerfile.baseline` | 1573.0 | 81.5 |
+| showresults optimized | `showresults/Dockerfile` | 243.4 | 8.3 |
 
 The tags `cit3495-analytics:*` and `cit3495-showresults:*` are measurement tags. Removing them does not affect `docker compose`.

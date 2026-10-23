@@ -67,14 +67,14 @@ services:
         condition: service_healthy
     networks: [backend]
     restart: unless-stopped
-    # Two gunicorn workers. Stays private on the backend network (no ports:).
-    mem_limit: 256m
-    cpus: "0.50"
+    # Four gunicorn workers. bcrypt is CPU-bound, so the cap is one core.
+    mem_limit: 384m
+    cpus: "1.0"
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 256M
+          cpus: "1.0"
+          memory: 384M
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:5000/health', timeout=2)"]
       interval: 15s

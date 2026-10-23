@@ -40,7 +40,7 @@ matched=0
 start="$(date +%s)"
 stat_count=""
 while (( $(date +%s) - start < 90 )); do
-  stat_count="$(mongo_q "const d = db.stats.findOne({category: '$CATEGORY'}); print(d ? d.count : 'missing');" | tr -d '[:space:]')"
+  stat_count="$(mongo_q "const d = db.getCollection('stats').findOne({category: '$CATEGORY'}); print(d ? d.count : 'missing');" | tr -d '[:space:]')"
   if [[ "$stat_count" == "$sql_count" ]]; then
     matched=1
     break
@@ -56,7 +56,7 @@ say "Stats document matched after $(( $(date +%s) - start ))s (count $sql_count)
 measurements="$(mysql_q "SELECT COUNT(*) FROM measurements;" | tr -d '[:space:]')"
 users="$(mysql_q "SELECT COUNT(*) FROM users;" | tr -d '[:space:]')"
 category_rows="$sql_count"
-stat_docs="$(mongo_q "print(db.stats.countDocuments({}));" | tr -d '[:space:]')"
+stat_docs="$(mongo_q "print(db.getCollection('stats').countDocuments({}));" | tr -d '[:space:]')"
 
 say ""
 say "Removing mysql and mongo containers."
@@ -89,8 +89,8 @@ say "Both databases reported healthy $(( $(date +%s) - start ))s after recreate.
 a_measurements="$(mysql_q "SELECT COUNT(*) FROM measurements;" | tr -d '[:space:]')"
 a_users="$(mysql_q "SELECT COUNT(*) FROM users;" | tr -d '[:space:]')"
 a_category="$(mysql_q "SELECT COUNT(*) FROM measurements WHERE category='$CATEGORY';" | tr -d '[:space:]')"
-a_stat="$(mongo_q "const d = db.stats.findOne({category: '$CATEGORY'}); print(d ? d.count : 'missing');" | tr -d '[:space:]')"
-a_docs="$(mongo_q "print(db.stats.countDocuments({}));" | tr -d '[:space:]')"
+a_stat="$(mongo_q "const d = db.getCollection('stats').findOne({category: '$CATEGORY'}); print(d ? d.count : 'missing');" | tr -d '[:space:]')"
+a_docs="$(mongo_q "print(db.getCollection('stats').countDocuments({}));" | tr -d '[:space:]')"
 
 row() {
   local label="$1" before="$2" after="$3" match="NO"

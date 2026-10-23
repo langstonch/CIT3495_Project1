@@ -22,29 +22,33 @@ Copy the script's two summary tables below this line.
 
 ### Test 1 summary
 
+Measured 22 Oct 2026.
+
 | Check | Observation |
 |---|---|
-| Insert before stop |  |
-| Insert while MySQL stopped |  |
-| Insert after recovery |  |
-| enterdata process |  |
-| analytics job_error |  |
-| MySQL healthy again |  |
-| Auth healthy again |  |
-| analytics docs_written |  |
+| Insert before stop | HTTP 200 saved |
+| Insert while MySQL stopped | HTTP 503 database unavailable |
+| Insert after recovery | HTTP 200 saved |
+| enterdata process | running, healthy, restarts 0 |
+| analytics job_error | seen after 1s, repeated 5s later |
+| MySQL healthy again | 6 s |
+| Auth healthy again | 1 s after MySQL was healthy |
+| analytics docs_written | seen |
 
 ### Test 2 summary
 
 | Request | Auth up | Auth stopped | Auth restored |
 |---|---|---|---|
-| POST /login on :3001 |  |  |  |
-| GET /data with cookie |  |  |  |
-| GET /data with no cookie |  |  |  |
-| POST /login on :3002 |  |  |  |
-| GET /results with cookie |  |  |  |
-| GET /results with no cookie |  |  |  |
+| POST /login on :3001 | 303 | 503 auth unavailable | 303 |
+| GET /data with cookie | 200 | 503 auth unavailable | 200 |
+| GET /data with no cookie | 401 | 401 | 401 |
+| POST /login on :3002 | 303 | 503 auth unavailable | 303 |
+| GET /results with cookie | 200 | 503 auth unavailable | 200 |
+| GET /results with no cookie | 401 | 401 | 401 |
 
 | Process | Restarts before | Status during outage | Restarts during outage |
 |---|---|---|---|
-| enterdata |  |  |  |
-| showresults |  |  |  |
+| enterdata | 0 | running / healthy | 0 |
+| showresults | 0 | running / healthy | 0 |
+
+Auth was healthy 6s after `docker compose start auth`.

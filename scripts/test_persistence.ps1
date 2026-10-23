@@ -51,8 +51,8 @@ function Get-Counts {
     $measurements = Invoke-Mysql "SELECT COUNT(*) FROM measurements;"
     $users = Invoke-Mysql "SELECT COUNT(*) FROM users;"
     $categoryRows = Invoke-Mysql "SELECT COUNT(*) FROM measurements WHERE category='$Category';"
-    $statCount = Invoke-Mongo "const d = db.stats.findOne({category: '$Category'}); print(d ? d.count : 'missing');"
-    $statDocs = Invoke-Mongo "print(db.stats.countDocuments({}));"
+    $statCount = Invoke-Mongo "const d = db.getCollection('stats').findOne({category: '$Category'}); print(d ? d.count : 'missing');"
+    $statDocs = Invoke-Mongo "print(db.getCollection('stats').countDocuments({}));"
     return [pscustomobject]@{
         Measurements = "$measurements".Trim()
         Users        = "$users".Trim()
@@ -87,7 +87,7 @@ Say "Waiting up to 90s for analytics to upsert the matching stats document."
 $matched = $false
 $sw = [Diagnostics.Stopwatch]::StartNew()
 do {
-    $statCount = Invoke-Mongo "const d = db.stats.findOne({category: '$Category'}); print(d ? d.count : 'missing');"
+    $statCount = Invoke-Mongo "const d = db.getCollection('stats').findOne({category: '$Category'}); print(d ? d.count : 'missing');"
     $statCount = "$statCount".Trim()
     if ($statCount -eq "$sqlCount".Trim()) { $matched = $true; break }
     Start-Sleep -Seconds 3

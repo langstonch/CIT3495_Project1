@@ -4,7 +4,7 @@ const { createApp } = require('./app');
 const AUTH = process.env.AUTH_URL;
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST, user: process.env.MYSQL_USER, password: process.env.MYSQL_PASSWORD,
-  database: process.env.MYSQL_DB, connectionLimit: 10, connectTimeout: 3000,
+  database: process.env.MYSQL_DB, connectionLimit: 30, connectTimeout: 3000,
 });
 
 const app = createApp({

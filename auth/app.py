@@ -10,14 +10,26 @@ app = Flask(__name__)
 DUMMY = bcrypt.hashpw(b"x", bcrypt.gensalt()).decode()
 
 
+_conn = None
+
+
 def db():
-    return pymysql.connect(host=os.environ["MYSQL_HOST"], user=os.environ["MYSQL_USER"],
-                           password=os.environ["MYSQL_PASSWORD"], database=os.environ["MYSQL_DB"],
-                           connect_timeout=3)
+    """One connection per process. Gunicorn sync workers handle a single request at a time."""
+    global _conn
+    try:
+        if _conn is None or not _conn.open:
+            raise pymysql.MySQLError("closed")
+        _conn.ping(reconnect=True)
+    except pymysql.MySQLError:
+        _conn = pymysql.connect(host=os.environ["MYSQL_HOST"], user=os.environ["MYSQL_USER"],
+                               password=os.environ["MYSQL_PASSWORD"], database=os.environ["MYSQL_DB"],
+                               connect_timeout=3)
+    return _conn
 
 
 def get_hash(username):
-    with db() as c, c.cursor() as cur:
+    c = db()
+    with c.cursor() as cur:
         cur.execute("SELECT password_hash FROM users WHERE username=%s", (username,))
         row = cur.fetchone()
     return row[0] if row else None
@@ -32,7 +44,8 @@ def seed_admin():
         try:
             if get_hash(u) is None:
                 h = bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
-                with db() as c, c.cursor() as cur:
+                c = db()
+                with c.cursor() as cur:
                     cur.execute("INSERT INTO users (username, password_hash) VALUES (%s,%s)", (u, h))
                     c.commit()
                 log(event="seeded_user", user=u)
@@ -45,7 +58,7 @@ def seed_admin():
 @app.get("/health")
 def health():
     try:
-        db().close()
+        db().ping(reconnect=True)
     except pymysql.MySQLError:
         return jsonify(status="db_down"), 503
     return jsonify(status="ok")

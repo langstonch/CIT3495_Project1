@@ -19,12 +19,14 @@ docker compose up -d mysql mongo
 
 There is no `-v`. The script refuses to remove containers if the stats document never matches. Paste its table here.
 
+Measured 22 Oct 2026. Both databases were healthy 7s after recreate. Counts matched.
+
 | Count | Before rm | After recreate | Match |
 |---|---:|---:|---|
-| MySQL measurements |  |  |  |
-| MySQL users |  |  |  |
-| MySQL rows in persist-check |  |  |  |
-| Mongo stats count for persist-check |  |  |  |
-| Mongo stats documents |  |  |  |
+| MySQL measurements | 8 | 8 | yes |
+| MySQL users | 1 | 1 | yes |
+| MySQL rows in persist-check | 8 | 8 | yes |
+| Mongo stats count for persist-check | 8 | 8 | yes |
+| Mongo stats documents | 1 | 1 | yes |
 
 A pass is every Match cell reading `yes`.
